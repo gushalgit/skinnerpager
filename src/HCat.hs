@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 
-module 
-  HCat (runHCat,)
-where
+module HCat (runHCat) where
+
 -- R. Skinner, Kap. 8
 
 import qualified Control.Exception as Exception
@@ -13,9 +12,9 @@ runHCat :: IO ()
 runHCat =
   handleIOErr $
     handleArgs
-    >>= eitherToError
-    >>= readFile
-    >>= putStrLn
+      >>= eitherToError
+      >>= readFile
+      >>= putStrLn
   where
     handleIOErr :: IO () -> IO ()
     handleIOErr ioAction = Exception.catch ioAction $
@@ -30,7 +29,7 @@ handleArgs = parseArgs <$> Env.getArgs
         [] -> Left "Dateiname fehlt"
         _mehrereArgumente -> Left "es ist nur ein Dateiname erlaubt"
 
-eitherToError :: Show a => Either a b -> IO b
+eitherToError :: (Show a) => Either a b -> IO b
 eitherToError (Right x) = return x
 eitherToError (Left e) =
   Exception.throwIO . IOError.userError $ show e
