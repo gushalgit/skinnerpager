@@ -1,6 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module HCat (runHCat) where
+module HCat (runHCat, paginate) where
 
 -- R. Skinner, Kap. 8
 
@@ -64,7 +65,10 @@ softWrap maxlg line
   | Text.length line <= maxlg = [line]
   | otherwise =
       let (candidate, rest) = Text.splitAt maxlg line
-          (firstPart, overflow) = splitOnFirstSpace candidate (maxlg - 1)
+          (firstPart, overflow) =
+            if Text.head rest == ' '
+              then (candidate, "")
+              else splitOnFirstSpace candidate (maxlg - 1)
        in firstPart : softWrap maxlg (overflow <> rest)
   where
     splitOnFirstSpace cand textIdx
@@ -75,5 +79,5 @@ softWrap maxlg line
       | otherwise = splitOnFirstSpace cand (textIdx - 1)
 
 bspt, bsp1 :: Text.Text
-bspt = Text.pack "Dieser Text ist nicht lang, aber er erfuellt seinen Zweck."
-bsp1 = Text.pack "word wrapping is tricky"
+bspt = "Dieser Text ist nicht lang, aber er erfuellt seinen Zweck."
+bsp1 = "word wrapping is tricky"
