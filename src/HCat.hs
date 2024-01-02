@@ -10,16 +10,26 @@ import qualified Data.ByteString as BS
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
 import qualified System.Environment as Env
+import qualified System.Info as SysInfo
 import qualified System.IO.Error as IOError
+import System.IO
+import System.Process (readProcess)
 
 runHCat :: IO ()
-runHCat =
+runHCat = do
   handleIOErr $
     handleArgs
       >>= eitherToError
       >>= readFile
       >>= putStrLn
-  where
+  putStrLn "weiter? (Leerzeichen - ja, q - quit): "
+  ans <- getContinue
+  case ans of
+    Continue -> do
+      ts <- getTerminalSize
+      print ts
+    Cancel -> putStrLn "Ende"
+    where
     handleIOErr :: IO () -> IO ()
     handleIOErr ioAction = Exception.catch ioAction $
       \e -> putStrLn "ran into an error:" >> print @IOError e
@@ -47,6 +57,34 @@ data ScreenDimension = ScreenDimension
   }
   deriving (Show)
 
+data ContinueCancel = Continue | Cancel deriving (Eq, Show)
+
+getContinue :: IO ContinueCancel
+getContinue = do
+  hSetBuffering stdin NoBuffering
+  hSetEcho stdin False
+  -- ch <- hGetChar stdin
+  ch <- getChar
+  case ch of
+    ' ' -> return Continue
+    'q' -> return Cancel
+    _  -> getContinue
+    
+getTerminalSize :: IO ScreenDimension
+getTerminalSize =
+  case SysInfo.os of
+    "darwin" -> tputScreenDimension
+    "linux" -> tputScreenDimension
+    _other -> pure $ ScreenDimension 25 80
+  where
+    tputScreenDimension :: IO ScreenDimension
+    tputScreenDimension = do
+      lin <- readProcess "tput" ["lines"] ""
+      col <- readProcess "tput" ["cols"] ""
+      let lines' = read $ init lin
+          cols' = read $ init col
+      return $ ScreenDimension lines' cols'
+      
 groupsOf :: Int -> [a] -> [[a]]
 groupsOf _ [] = []
 groupsOf n elems =
