@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE TypeApplications #-}
 
 module HCat (runHCat, paginate) where
 
@@ -9,36 +9,24 @@ import qualified Control.Exception as Exception
 import qualified Data.ByteString as BS
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
-import qualified System.Environment as Env
 import qualified System.Info as SysInfo
 import qualified System.IO.Error as IOError
 import System.IO
 import System.Process (readProcess)
+import System.Environment (getArgs)
 
 runHCat :: IO ()
 runHCat = do
-      filearg <- eitherToError =<< handleArgs
-      content <- TextIO.hGetContents =<< openFile filearg ReadMode
+      filePath <- eitherToError =<< handleArgs
+      content <- TextIO.hGetContents =<< openFile filePath ReadMode
       termSize <- getTerminalSize
       let pages = paginate termSize content
       showPages pages
 
-{-
-  putStrLn "weiter? (Leerzeichen - ja, q - quit): "
-  ans <- getContinue
-  case ans of
-    Continue -> do
-      ts <- getTerminalSize
-      print ts
-    Cancel -> putStrLn "Ende"
-    where
-    handleIOErr :: IO () -> IO ()
-    handleIOErr ioAction = Exception.catch ioAction $
-      \e -> putStrLn "ran into an error:" >> print @IOError e
--}
+-- Input handling
 
 handleArgs :: IO (Either String FilePath)
-handleArgs = parseArgs <$> Env.getArgs
+handleArgs = parseArgs <$> getArgs
   where
     parseArgs argumentList =
       case argumentList of
@@ -46,10 +34,7 @@ handleArgs = parseArgs <$> Env.getArgs
         [] -> Left "Dateiname fehlt"
         _mehrereArgumente -> Left "es ist nur ein Dateiname erlaubt"
 
-eitherToError :: (Show a) => Either a b -> IO b
-eitherToError (Right x) = return x
-eitherToError (Left e) =
-  Exception.throwIO . IOError.userError $ show e
+-- Terminal based IO
 
 -- Behandlung von Text als Menge von Zeichen, die auf einer Seite der
 -- Groesse ze x sp dargestellt werden sollen
@@ -66,7 +51,6 @@ getContinue :: IO ContinueCancel
 getContinue = do
   hSetBuffering stdin NoBuffering
   hSetEcho stdin False
-  -- ch <- hGetChar stdin
   ch <- getChar
   case ch of
     ' ' -> return Continue
@@ -86,22 +70,18 @@ getTerminalSize =
       col <- readProcess "tput" ["cols"] ""
       let lines' = read $ init lin
           cols' = read $ init col
-      return $ ScreenDimension lines' cols'
+      return $ ScreenDimension (lines' - 1) cols'
       
 clearScreen :: IO ()
 clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 
-groupsOf :: Int -> [a] -> [[a]]
-groupsOf _ [] = []
-groupsOf n elems =
-  let (hd, tl) = splitAt n elems
-   in hd : groupsOf n tl
+-- Textprocessing
 
 paginate :: ScreenDimension -> Text.Text -> [Text.Text]
-paginate dim txt =
+paginate sdim txt =
   let allLines = Text.lines txt
-      wrappedLines = concatMap (softWrap (cols dim)) allLines
-      pageLines = groupsOf (rows dim) wrappedLines
+      wrappedLines = concatMap (softWrap (cols sdim)) allLines
+      pageLines = groupsOf (rows sdim) wrappedLines
    in map Text.unlines pageLines
 
 softWrap :: Int -> Text.Text -> [Text.Text]
@@ -112,15 +92,17 @@ softWrap maxlg line
           (firstPart, overflow) =
             if Text.head rest == ' '
               then (candidate, "")
-              else splitOnFirstSpace candidate (maxlg - 1)
+              else splitOnSpaceAt (maxlg - 1) candidate
        in firstPart : softWrap maxlg (overflow <> rest)
   where
-    splitOnFirstSpace cand textIdx
+    splitOnSpaceAt textIdx cand
       | textIdx <= 0 = (cand, Text.empty)
       | Text.index cand textIdx == ' ' =
           let (wrappedLine, rest) = Text.splitAt textIdx cand
            in (wrappedLine, Text.tail rest)
-      | otherwise = splitOnFirstSpace cand (textIdx - 1)
+      | otherwise = splitOnSpaceAt (textIdx - 1) cand
+
+-- Output
 
 showPages :: [Text.Text] -> IO ()
 showPages [] = return ()
@@ -131,3 +113,16 @@ showPages (page:pages) = do
   case ch of
     Continue -> showPages pages
     Cancel -> return ()
+
+-- Utilities
+
+eitherToError :: (Show a) => Either a b -> IO b
+eitherToError (Right x) = return x
+eitherToError (Left e) =
+  Exception.throwIO . IOError.userError $ show e
+
+groupsOf :: Int -> [a] -> [[a]]
+groupsOf _ [] = []
+groupsOf n elems =
+  let (hd, tl) = splitAt n elems
+   in hd : groupsOf n tl
