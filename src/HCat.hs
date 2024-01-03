@@ -17,11 +17,13 @@ import System.Process (readProcess)
 
 runHCat :: IO ()
 runHCat = do
-  handleIOErr $
-    handleArgs
-      >>= eitherToError
-      >>= readFile
-      >>= putStrLn
+      filearg <- eitherToError =<< handleArgs
+      content <- TextIO.hGetContents =<< openFile filearg ReadMode
+      termSize <- getTerminalSize
+      let pages = paginate termSize content
+      showPages pages
+
+{-
   putStrLn "weiter? (Leerzeichen - ja, q - quit): "
   ans <- getContinue
   case ans of
@@ -33,6 +35,7 @@ runHCat = do
     handleIOErr :: IO () -> IO ()
     handleIOErr ioAction = Exception.catch ioAction $
       \e -> putStrLn "ran into an error:" >> print @IOError e
+-}
 
 handleArgs :: IO (Either String FilePath)
 handleArgs = parseArgs <$> Env.getArgs
@@ -85,6 +88,9 @@ getTerminalSize =
           cols' = read $ init col
       return $ ScreenDimension lines' cols'
       
+clearScreen :: IO ()
+clearScreen = BS.putStr "\^[[1J\^[[1;1H"
+
 groupsOf :: Int -> [a] -> [[a]]
 groupsOf _ [] = []
 groupsOf n elems =
@@ -116,6 +122,12 @@ softWrap maxlg line
            in (wrappedLine, Text.tail rest)
       | otherwise = splitOnFirstSpace cand (textIdx - 1)
 
-bspt, bsp1 :: Text.Text
-bspt = "Dieser Text ist nicht lang, aber er erfuellt seinen Zweck."
-bsp1 = "word wrapping is tricky"
+showPages :: [Text.Text] -> IO ()
+showPages [] = return ()
+showPages (page:pages) = do
+  clearScreen
+  TextIO.putStr page
+  ch <- getContinue
+  case ch of
+    Continue -> showPages pages
+    Cancel -> return ()
