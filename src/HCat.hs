@@ -18,7 +18,7 @@ import qualified System.Directory as Directory
 import System.Process (readProcess)
 import qualified Data.Time.Clock as Clock
 import qualified Data.Time.Format as TimeFormat
-import qualified Data.Time.Clock.POSIX as PosixClock
+-- import qualified Data.Time.Clock.POSIX as PosixClock
 import Text.Printf (printf)
 
 runHCat :: IO ()
@@ -26,7 +26,9 @@ runHCat = do
   filePath <- eitherToError =<< handleArgs
   content <- TextIO.hGetContents =<< openFile filePath ReadMode
   termSize <- getTerminalSize
-  let pages = paginate termSize content
+  hSetBuffering stdout NoBuffering
+  finfo <- fileInfo filePath
+  let pages = paginate termSize finfo content
   showPages pages
 
 -- Input handling
@@ -83,12 +85,20 @@ clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 
 -- Textprocessing
 
-paginate :: ScreenDimension -> Text.Text -> [Text.Text]
-paginate sdim txt =
-  let allLines = Text.lines txt
+paginate :: ScreenDimension -> FileInfo -> Text.Text -> [Text.Text]
+paginate sdim finfo txt =
+  let trows' = termRows sdim - 1
+      tcols = termCols sdim
+      allLines = Text.lines txt
       wrappedLines = concatMap (softWrap (termCols sdim)) allLines
-      pageLines = groupsOf (termRows sdim) wrappedLines
-   in map Text.unlines pageLines
+      pageLines = groupsOf trows' wrappedLines
+      pages = map (Text.unlines . padTo trows') pageLines
+      pageCount = length pages
+      statusLines = map (formatFileInfo finfo tcols pageCount) [1..pageCount]
+    in zipWith (<>) pages statusLines
+    where
+      padTo :: Int -> [Text.Text] -> [Text.Text]
+      padTo lineCount rowsToPad = take lineCount $ rowsToPad <> repeat ""
 
 softWrap :: Int -> Text.Text -> [Text.Text]
 softWrap maxlg line
