@@ -1,27 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- {-# LANGUAGE TypeApplications #-}
+-- R. Skinner, Kap. 8
 
 module HCat (runHCat, paginate) where
-
--- R. Skinner, Kap. 8
 
 import qualified Control.Exception as Exception
 import qualified Data.ByteString as BS
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
-import qualified System.Info as SysInfo
-import qualified System.IO.Error as IOError
-import System.IO
-import System.Process (readProcess)
 import System.Environment (getArgs)
+import System.IO
+import qualified System.IO.Error as IOError
+import qualified System.Info as SysInfo
+import System.Process (readProcess)
 
 runHCat :: IO ()
 runHCat = do
-      filePath <- eitherToError =<< handleArgs
-      content <- TextIO.hGetContents =<< openFile filePath ReadMode
-      termSize <- getTerminalSize
-      let pages = paginate termSize content
-      showPages pages
+  filePath <- eitherToError =<< handleArgs
+  content <- TextIO.hGetContents =<< openFile filePath ReadMode
+  termSize <- getTerminalSize
+  let pages = paginate termSize content
+  showPages pages
 
 -- Input handling
 
@@ -40,8 +40,8 @@ handleArgs = parseArgs <$> getArgs
 -- Groesse ze x sp dargestellt werden sollen
 
 data ScreenDimension = ScreenDimension
-  { rows :: Int,
-    cols :: Int
+  { termRows :: Int,
+    termCols :: Int
   }
   deriving (Show)
 
@@ -55,8 +55,8 @@ getContinue = do
   case ch of
     ' ' -> return Continue
     'q' -> return Cancel
-    _  -> getContinue
-    
+    _ -> getContinue
+
 getTerminalSize :: IO ScreenDimension
 getTerminalSize =
   case SysInfo.os of
@@ -71,7 +71,7 @@ getTerminalSize =
       let lines' = read $ init lin
           cols' = read $ init col
       return $ ScreenDimension (lines' - 1) cols'
-      
+
 clearScreen :: IO ()
 clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 
@@ -80,8 +80,8 @@ clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 paginate :: ScreenDimension -> Text.Text -> [Text.Text]
 paginate sdim txt =
   let allLines = Text.lines txt
-      wrappedLines = concatMap (softWrap (cols sdim)) allLines
-      pageLines = groupsOf (rows sdim) wrappedLines
+      wrappedLines = concatMap (softWrap (termCols sdim)) allLines
+      pageLines = groupsOf (termRows sdim) wrappedLines
    in map Text.unlines pageLines
 
 softWrap :: Int -> Text.Text -> [Text.Text]
@@ -106,7 +106,7 @@ softWrap maxlg line
 
 showPages :: [Text.Text] -> IO ()
 showPages [] = return ()
-showPages (page:pages) = do
+showPages (page : pages) = do
   clearScreen
   TextIO.putStr page
   ch <- getContinue
