@@ -42,26 +42,14 @@ handleArgs = parseArgs <$> getArgs
 
 -- Terminal based IO
 
--- Behandlung von Text als Menge von Zeichen, die auf einer Seite der
--- Groesse ze x sp dargestellt werden sollen
+-- Datentyp fuer die Menge von Zeichen in einem Terminalfenster
+-- der Groesse termRows x termCols
 
 data ScreenDimension = ScreenDimension
   { termRows :: Int,
     termCols :: Int
   }
   deriving (Show)
-
-data ContinueCancel = Continue | Cancel deriving (Eq, Show)
-
-getContinue :: IO ContinueCancel
-getContinue = do
-  hSetBuffering stdin NoBuffering
-  hSetEcho stdin False
-  ch <- getChar
-  case ch of
-    ' ' -> return Continue
-    'q' -> return Cancel
-    _ -> getContinue
 
 getTerminalSize :: IO ScreenDimension
 getTerminalSize =
@@ -77,9 +65,6 @@ getTerminalSize =
       let lines' = read $ init lin
           cols' = read $ init col
       return $ ScreenDimension (lines' - 1) cols'
-
-clearScreen :: IO ()
-clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 
 -- Textprocessing
 
@@ -162,10 +147,6 @@ formatFileInfo FileInfo {..} maxWidth totalPages currentPage =
             totalPages
    in invertText (truncateStatus statusLine)
   where
-    invertText inputString =
-      let reverseVideo = "\^[[7m"
-          resetVideo = "\^[[0m"
-       in reverseVideo <> inputString <> resetVideo
     truncateStatus statusLine
       | maxWidth <= 3 = ""
       | Text.length statusLine > maxWidth =
@@ -173,6 +154,8 @@ formatFileInfo FileInfo {..} maxWidth totalPages currentPage =
       | otherwise = statusLine
 
 -- Output
+
+data ContinueCancel = Continue | Cancel deriving (Eq, Show)
 
 showPages :: [Text.Text] -> IO ()
 showPages [] = return ()
@@ -183,6 +166,25 @@ showPages (page : pages) = do
   case ch of
     Continue -> showPages pages
     Cancel -> return ()
+
+getContinue :: IO ContinueCancel
+getContinue = do
+  hSetBuffering stdin NoBuffering
+  hSetEcho stdin False
+  ch <- getChar
+  case ch of
+    ' ' -> return Continue
+    'q' -> return Cancel
+    _ -> getContinue
+
+invertText :: Text.Text -> Text.Text
+invertText inputString =
+  let reverseVideo = "\^[[7m"
+      resetVideo = "\^[[0m"
+   in reverseVideo <> inputString <> resetVideo
+
+clearScreen :: IO ()
+clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 
 -- Utilities
 
