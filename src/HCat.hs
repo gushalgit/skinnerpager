@@ -10,14 +10,14 @@ import qualified Control.Exception as Exception
 import qualified Data.ByteString as BS
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
+import qualified Data.Time.Clock as Clock
+import qualified Data.Time.Format as TimeFormat
+import qualified System.Directory as Directory
 import System.Environment (getArgs)
 import System.IO
 import qualified System.IO.Error as IOError
 import qualified System.Info as SysInfo
-import qualified System.Directory as Directory
 import System.Process (readProcess)
-import qualified Data.Time.Clock as Clock
-import qualified Data.Time.Format as TimeFormat
 -- import qualified Data.Time.Clock.POSIX as PosixClock
 import Text.Printf (printf)
 
@@ -86,19 +86,16 @@ clearScreen = BS.putStr "\^[[1J\^[[1;1H"
 -- Textprocessing
 
 paginate :: ScreenDimension -> FileInfo -> Text.Text -> [Text.Text]
-paginate sdim finfo txt =
-  let trows' = termRows sdim - 1
-      tcols = termCols sdim
-      allLines = Text.lines txt
-      wrappedLines = concatMap (softWrap (termCols sdim)) allLines
-      pageLines = groupsOf trows' wrappedLines
-      pages = map (Text.unlines . padTo trows') pageLines
+paginate (ScreenDimension trows tcols) finfo txt =
+  let wrappedLines = concatMap (softWrap tcols) $ Text.lines txt
+      pageLines = groupsOf trows wrappedLines
+      pages = map (Text.unlines . padTo trows) pageLines
       pageCount = length pages
-      statusLines = map (formatFileInfo finfo tcols pageCount) [1..pageCount]
-    in zipWith (<>) pages statusLines
-    where
-      padTo :: Int -> [Text.Text] -> [Text.Text]
-      padTo lineCount rowsToPad = take lineCount $ rowsToPad <> repeat ""
+      statusLines = map (formatFileInfo finfo tcols pageCount) [1 .. pageCount]
+   in zipWith (<>) pages statusLines
+  where
+    padTo :: Int -> [Text.Text] -> [Text.Text]
+    padTo lineCount rowsToPad = take lineCount $ rowsToPad <> repeat ""
 
 softWrap :: Int -> Text.Text -> [Text.Text]
 softWrap maxlg line
@@ -121,13 +118,14 @@ softWrap maxlg line
 -- FileData
 
 data FileInfo = FileInfo
-  { filePath :: FilePath
-  , fileSize :: Int
-  , fileMTime :: Clock.UTCTime
-  , fileReadable :: Bool
-  , fileWritable :: Bool
-  , fileExecutable :: Bool
-  } deriving (Show)
+  { filePath :: FilePath,
+    fileSize :: Int,
+    fileMTime :: Clock.UTCTime,
+    fileReadable :: Bool,
+    fileWritable :: Bool,
+    fileExecutable :: Bool
+  }
+  deriving (Show)
 
 fileInfo :: FilePath -> IO FileInfo
 fileInfo filePath = do
@@ -135,45 +133,46 @@ fileInfo filePath = do
   mtime <- Directory.getModificationTime filePath
   contents <- BS.readFile filePath
   let size = BS.length contents
-  return FileInfo
-    { filePath = filePath
-    , fileSize = size
-    , fileMTime = mtime
-    , fileReadable = Directory.readable perms
-    , fileWritable = Directory.writable perms
-    , fileExecutable = Directory.executable perms
-    }
+  return
+    FileInfo
+      { filePath = filePath,
+        fileSize = size,
+        fileMTime = mtime,
+        fileReadable = Directory.readable perms,
+        fileWritable = Directory.writable perms,
+        fileExecutable = Directory.executable perms
+      }
 
 formatFileInfo :: FileInfo -> Int -> Int -> Int -> Text.Text
-formatFileInfo FileInfo{..} maxWidth totalPages currentPage  =
-  let
-    timestamp =
-      TimeFormat.formatTime TimeFormat.defaultTimeLocale "%F %T" fileMTime
-    permissionString =
-      [ if fileReadable then 'r' else '-'
-      , if fileWritable then 'w' else '-'
-      , if fileExecutable then 'x' else '-' ]
-    statusLine = Text.pack $
-      printf
-      "%s | permissions: %s | %d bytes | modified: %s | page: %d of %d"
-      filePath
-      permissionString
-      fileSize
-      timestamp
-      currentPage
-      totalPages
-    in invertText (truncateStatus statusLine)
-    where
-      invertText inputString =
-        let
-          reverseVideo = "\^[[7m"
+formatFileInfo FileInfo {..} maxWidth totalPages currentPage =
+  let timestamp =
+        TimeFormat.formatTime TimeFormat.defaultTimeLocale "%F %T" fileMTime
+      permissionString =
+        [ if fileReadable then 'r' else '-',
+          if fileWritable then 'w' else '-',
+          if fileExecutable then 'x' else '-'
+        ]
+      statusLine =
+        Text.pack $
+          printf
+            "%s | permissions: %s | %d bytes | modified: %s | page: %d of %d"
+            filePath
+            permissionString
+            fileSize
+            timestamp
+            currentPage
+            totalPages
+   in invertText (truncateStatus statusLine)
+  where
+    invertText inputString =
+      let reverseVideo = "\^[[7m"
           resetVideo = "\^[[0m"
-        in reverseVideo <> inputString <> resetVideo
-      truncateStatus statusLine
-        | maxWidth <= 3 = ""
-        | Text.length statusLine > maxWidth =
+       in reverseVideo <> inputString <> resetVideo
+    truncateStatus statusLine
+      | maxWidth <= 3 = ""
+      | Text.length statusLine > maxWidth =
           Text.take (maxWidth - 3) statusLine <> "..."
-        | otherwise = statusLine
+      | otherwise = statusLine
 
 -- Output
 
