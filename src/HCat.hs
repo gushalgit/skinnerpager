@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
--- {-# LANGUAGE TypeApplications #-}
 -- R. Skinner, Kap. 8
 
 module HCat (runHCat, paginate) where
@@ -18,17 +17,16 @@ import System.IO
 import qualified System.IO.Error as IOError
 import qualified System.Info as SysInfo
 import System.Process (readProcess)
--- import qualified Data.Time.Clock.POSIX as PosixClock
 import Text.Printf (printf)
 
 runHCat :: IO ()
 runHCat = do
   filePath <- eitherToError =<< handleArgs
   content <- TextIO.hGetContents =<< openFile filePath ReadMode
-  termSize <- getTerminalSize
-  hSetBuffering stdout NoBuffering
   finfo <- fileInfo filePath
+  termSize <- getTerminalSize
   let pages = paginate termSize finfo content
+  hSetBuffering stdout NoBuffering   -- fuer die Ausgabe von Zeilen ohne \n am Ende
   showPages pages
 
 -- Input handling
