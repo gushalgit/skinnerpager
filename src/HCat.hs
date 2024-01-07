@@ -62,11 +62,11 @@ getTerminalSize =
     tputScreenDimension = do
       lin <- readProcess "tput" ["lines"] ""
       col <- readProcess "tput" ["cols"] ""
-      let lines' = read $ init lin
+      let rows' = read $ init lin
           cols' = read $ init col
-      return $ ScreenDimension (lines' - 1) cols'
+      return $ ScreenDimension (rows' - 1) cols'  -- 1 zusaetzl. Kopfzeile in iTerm
 
--- Textprocessing
+-- Textprocessing 
 
 paginate :: ScreenDimension -> FileInfo -> Text.Text -> [Text.Text]
 paginate (ScreenDimension trows tcols) finfo txt =
@@ -114,8 +114,7 @@ fileInfo :: FilePath -> IO FileInfo
 fileInfo filePath = do
   perms <- Directory.getPermissions filePath
   mtime <- Directory.getModificationTime filePath
-  contents <- BS.readFile filePath
-  let size = BS.length contents
+  size <- BS.length <$> BS.readFile filePath
   return
     FileInfo
       { filePath = filePath,
