@@ -19,8 +19,13 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/gushalgit/pager#readme>
 
+verbatim:
+  cabal-version: 3.12
+
+language: GHC2024
+
 dependencies:
-- base >= 4.7 && < 5
+- base ^>= 4.20.1.0
 - bytestring
 - text
 - process
@@ -31,8 +36,6 @@ ghc-options:
 - -Wall
 - -Wcompat
 - -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
 - -Wmissing-export-lists
 - -Wmissing-home-modules
 - -Wpartial-fields
