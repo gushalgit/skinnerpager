@@ -98,7 +98,7 @@ softWrap maxlg line
            in (wrappedLine, Text.tail rest)
       | otherwise = splitOnSpaceAt (textIdx - 1) cand
 
--- FileData
+-- type for FileData and necessary functions and actions
 
 data FileInfo = FileInfo
   { filePath :: FilePath,
@@ -152,7 +152,7 @@ formatFileInfo FileInfo {..} maxWidth totalPages currentPage =
           Text.take (maxWidth - 3) statusLine <> "..."
       | otherwise = statusLine
 
--- Output
+-- Output of read files
 
 data ContinueCancel = Continue | Cancel deriving (Eq, Show)
 
