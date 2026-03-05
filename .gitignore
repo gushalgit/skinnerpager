@@ -1,0 +1,32 @@
+# Created by https://www.toptal.com/developers/gitignore/api/haskell
+# Edit at https://www.toptal.com/developers/gitignore?templates=haskell
+
+### Haskell ###
+dist
+dist-*
+cabal-dev
+*.o
+*.hi
+*.hie
+*.chi
+*.chs.h
+*.dyn_o
+*.dyn_hi
+.hpc
+.hsenv
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+*.aux
+*.hp
+*.eventlog
+*.vim
+.stack-work/
+cabal.project.local
+cabal.project.local~
+stack.yaml.lock
+.HTF/
+.ghc.environment.*
+
+# 2 Ergaenzungen: stack.yaml.lock und *.vim
+# End of https://www.toptal.com/developers/gitignore/api/haskell
