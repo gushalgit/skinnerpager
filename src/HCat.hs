@@ -37,8 +37,8 @@ handleArgs = parseArgs <$> getArgs
     parseArgs argumentList =
       case argumentList of
         [fname] -> Right fname
-        [] -> Left "Dateiname fehlt"
-        _mehrereArgumente -> Left "es ist nur ein Dateiname erlaubt"
+        [] -> Left "Der Dateiname fehlt!"
+        _mehrereArgumente -> Left "Es ist nur ein Dateiname erlaubt"
 
 -- Terminal based IO
 
